@@ -1,3 +1,7 @@
+# This Repository #
+This is a fork of the `v1` revision of jerasure with some additional patches not
+upstream.
+
 # About #
 This is the Jerasure project, by James S. Plank, Scott Simmerman, and
 Catherine D. Schuman.  More details can be found at
