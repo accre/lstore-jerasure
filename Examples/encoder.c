@@ -58,7 +58,10 @@ is the file name with "_k#" or "_m#" and then the extension.
 (For example, inputfile test.txt would yield file "test_k1.txt".)
 
  */
+
+#include <unistd.h>
 #include <sys/time.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <stdio.h>
@@ -104,29 +107,30 @@ int main (int argc, char **argv) {
 	int size, newsize;			// size of file and temp size 
 	struct stat status;			// finding file size
 
-	
+
 	enum Coding_Technique tech;		// coding technique (parameter)
 	int k, m, w, packetsize;		// parameters
 	int buffersize;					// paramter
-	int i;							// loop control variables
+	int i;						// loop control variables
 	int blocksize;					// size of k+m files
 	int total;
 	int extra;
-	
+        char *dummy;
+
 	/* Jerasure Arguments */
-	char **data;				
+	char **data;
 	char **coding;
 	int *matrix;
 	int *bitmatrix;
 	int **schedule;
-	
+
 	/* Creation of file name variables */
 	char temp[5];
 	char *s1, *s2, *extension;
 	char *fname;
 	int md;
 	char *curdir;
-	
+
 	/* Timing variables */
 	struct timeval t1, t2, t3, t4;
 	struct timezone tz;
@@ -326,7 +330,7 @@ int main (int argc, char **argv) {
 
 	/* Get current working directory for construction of file names */
 	curdir = (char*)malloc(sizeof(char)*1000);	
-	getcwd(curdir, 1000);
+	dummy = getcwd(curdir, 1000);
 
         if (argv[1][0] != '-') {
 
@@ -462,6 +466,10 @@ int main (int argc, char **argv) {
 			bitmatrix = liber8tion_coding_bitmatrix(k);
 			schedule = jerasure_smart_bitmatrix_to_schedule(k, m, w, bitmatrix);
 			break;
+		case Reed_Sol_R6_Op:
+                case RDP:
+                case EVENODD:
+			break;
 		default:
 			fprintf(stderr,  "unsupported coding technique used\n");
 			break;
@@ -531,6 +539,9 @@ int main (int argc, char **argv) {
 			case Liber8tion:
 				jerasure_schedule_encode(k, m, w, schedule, data, coding, blocksize, packetsize);
 				break;
+                        case RDP:
+                        case EVENODD:
+                                break;
 			default:
 				fprintf(stderr,  "unsupported coding technique used\n");
 				break;
@@ -610,6 +621,8 @@ int main (int argc, char **argv) {
 	tsec -= t1.tv_sec;
 	printf("Encoding (MB/sec): %0.10f\n", (size/1024/1024)/totalsec);
 	printf("En_Total (MB/sec): %0.10f\n", (size/1024/1024)/tsec);
+
+        return 0;
 }
 
 /* is_prime returns 1 if number if prime, 0 if not prime */
@@ -624,8 +637,8 @@ int is_prime(int w) {
 			else { return 0; }
 		}
 	}
-	// explicit return value
-	return 0;
+	// explicit return value 
+        return 0;
 }
 
 /* Handles ctrl-\ event */

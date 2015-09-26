@@ -61,10 +61,12 @@ it is assumed that encoder.c has been called previously with the
 same arguments, and encoder.c does error check.
 */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <signal.h>
 #include "jerasure.h"
@@ -88,6 +90,8 @@ void ctrl_bs_handler(int dummy);
 
 int main (int argc, char **argv) {
 	FILE *fp;				// File pointer
+        char *dummy;
+        int err;
 
 	/* Jerasure arguments */
 	char **data;
@@ -128,7 +132,8 @@ int main (int argc, char **argv) {
 	matrix = NULL;
 	bitmatrix = NULL;
 	totalsec = 0.0;
-	
+        blocksize = -1;
+
 	/* Start timing */
 	gettimeofday(&t1, &tz);
 
@@ -138,7 +143,7 @@ int main (int argc, char **argv) {
 		exit(0);
 	}
 	curdir = (char *)malloc(sizeof(char)*100);
-	getcwd(curdir, 100);
+	dummy = getcwd(curdir, 100);
 	
 	/* Begin recreation of file names */
 	cs1 = (char*)malloc(sizeof(char)*strlen(argv[1]));
@@ -168,7 +173,7 @@ int main (int argc, char **argv) {
           exit(1);
         }
 	temp = (char *)malloc(sizeof(char)*(strlen(argv[1])+10));
-	fscanf(fp, "%s", temp);	
+	err = fscanf(fp, "%s", temp);	
 	
 	if (fscanf(fp, "%d", &origsize) != 1) {
 		fprintf(stderr, "Original size is not valid\n");
@@ -179,10 +184,10 @@ int main (int argc, char **argv) {
 		exit(0);
 	}
 	c_tech = (char *)malloc(sizeof(char)*(strlen(argv[1])+10));
-	fscanf(fp, "%s", c_tech);
-	fscanf(fp, "%d", (int*)&tech);
+	err = fscanf(fp, "%s", c_tech);
+	err = fscanf(fp, "%d", &tech);
 	method = tech;
-	fscanf(fp, "%d", &readins);
+	err = fscanf(fp, "%d", &readins);
 	fclose(fp);	
 
 	/* Allocate memory */
@@ -210,6 +215,8 @@ int main (int argc, char **argv) {
 	/* Create coding matrix or bitmatrix */
 	switch(tech) {
 		case No_Coding:
+                case RDP:
+                case EVENODD:
 			break;
 		case Reed_Sol_Van:
 			matrix = reed_sol_vandermonde_coding_matrix(k, m, w);
@@ -233,6 +240,7 @@ int main (int argc, char **argv) {
 			break;
 		case Liber8tion:
 			bitmatrix = liber8tion_coding_bitmatrix(k);
+			break;
 		default:
 			fprintf(stderr,  "unsupported coding technique used\n");
 			break;
@@ -266,11 +274,11 @@ int main (int argc, char **argv) {
 					stat(fname, &status);
 					blocksize = status.st_size;
 					data[i-1] = (char *)malloc(sizeof(char)*blocksize);
-					fread(data[i-1], sizeof(char), blocksize, fp);
+					err = fread(data[i-1], sizeof(char), blocksize, fp);
 				}
 				else {
 					fseek(fp, blocksize*(n-1), SEEK_SET); 
-					fread(data[i-1], sizeof(char), buffersize/k, fp);
+					err = fread(data[i-1], sizeof(char), buffersize/k, fp);
 				}
 				fclose(fp);
 			}
@@ -289,12 +297,12 @@ int main (int argc, char **argv) {
 					stat(fname, &status);
 					blocksize = status.st_size;
 					coding[i-1] = (char *)malloc(sizeof(char)*blocksize);
-					fread(coding[i-1], sizeof(char), blocksize, fp);
+					err = fread(coding[i-1], sizeof(char), blocksize, fp);
 				}
 				else {
 					fseek(fp, blocksize*(n-1), SEEK_SET);
-					fread(coding[i-1], sizeof(char), blocksize, fp);
-				}	
+					err = fread(coding[i-1], sizeof(char), blocksize, fp);
+				}
 				fclose(fp);
 			}
 		}
@@ -377,7 +385,7 @@ int main (int argc, char **argv) {
 	free(coding);
 	free(erasures);
 	free(erased);
-	
+
 	/* Stop timing and print time */
 	gettimeofday(&t2, &tz);
 	tsec = 0;
@@ -388,7 +396,9 @@ int main (int argc, char **argv) {
 	tsec -= t1.tv_sec;
 	printf("Decoding (MB/sec): %0.10f\n", (origsize/1024/1024)/totalsec);
 	printf("De_Total (MB/sec): %0.10f\n\n", (origsize/1024/1024)/tsec);
-}	
+
+        return(0);
+}
 
 void ctrl_bs_handler(int dummy) {
 	time_t mytime;
