@@ -54,7 +54,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "galois.h"
 #include "cauchy.h"
 #include "liberation.h"
-#include "reed_sol.h
+#include "reed_sol.h"
 
 /* ------------------------------------------------------------ */
 /* In all of the routines below:

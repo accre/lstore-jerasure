@@ -730,14 +730,13 @@ void galois_w32_region_multiply(char *region,      /* Region to multiply */
                                   char *r2,          /* If r2 != NULL, products go here */
                                   int add)
 {
-  unsigned int *ur1, *ur2, *ur2top;
+  unsigned int *ur1, *ur2;
   int i, j, a, b, accumulator, i8, j8, k;
   int acache[4];
 
   ur1 = (unsigned int *) region;
   ur2 = (r2 == NULL) ? ur1 : (unsigned int *) r2;
   nbytes /= sizeof(int);
-  ur2top = ur2 + nbytes;
 
   if (galois_split_w8[0]== NULL) {
     if (galois_create_split_w8_tables(8) < 0) {
