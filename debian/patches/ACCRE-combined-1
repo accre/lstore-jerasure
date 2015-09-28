@@ -1,0 +1,1812 @@
+Description: ACCRE tweaks (thread safety + ?), switch to CMake, added pkg-config
+ Initial ACCRE patch: ACCRE tweaks (thread safety + ?), switch to CMake, added pkg-config
+ .
+ jerasure (1.2A-1) unstable; urgency=low
+ .
+   * Initial release (Closes: #n/a)  <n/a>
+Author: Matthew Heller <root@unknown>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: http://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: <YYYY-MM-DD>
+
+--- /dev/null
++++ jerasure-1.2A/CMakeLists.txt
+@@ -0,0 +1,53 @@
++cmake_minimum_required(VERSION 2.6)
++
++# make a project
++project( jerasure C )
++
++# Set some cmake defaults
++#set(CMAKE_BUILD_TYPE "Debug")
++set(CMAKE_BUILD_TYPE "Release")
++
++set(JERASURE_VERSION_MAJOR 1)
++set(JERASURE_VERSION_MINOR 2)
++set(JERASURE_VERSION_PATCH 0)
++set(JERASURE_VERSION_STRING ${JERASURE_VERSION_MAJOR}.${JERASURE_VERSION_MINOR}.${JERASURE_VERSION_PATCH})
++
++set(CMAKE_C_FLAGS_DEBUG "${CMAKE_REQUIRED_FLAGS} -O0 -Wall -g" )
++set(CMAKE_C_FLAGS_RELEASE "-O ${CMAKE_REQUIRED_FLAGS} -O3 -Wall -g" )
++
++set(CMAKE_INCLUDE_CURRENT_DIR on)
++set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
++
++include(GNUInstallDirs)
++# ^^^ fallback needed or does this module handle non GNU OSes gracefully?
++
++#check_include_file("stdint.h" HAVE_STDINT_H)
++#check_include_file("inttypes.h" HAVE_INTTYPES_H)
++
++set(JERASURE_OBJS jerasure.c galois.c reed_sol.c cauchy.c liberation.c ) 
++
++#message("proto src is ${PROTO_SRC}")
++#ADD_EXECUTABLE( trace_replay trace_replay.c trace.c ${IBP_OBJS} ${EX3_OBJS} ${TP_OBJS} )
++
++
++set(LIBS pthread m)
++add_library(jerasure SHARED ${JERASURE_OBJS})
++add_library(jerasure-static STATIC ${JERASURE_OBJS})
++ 
++set_target_properties(jerasure-static PROPERTIES OUTPUT_NAME "jerasure" )
++set_target_properties(jerasure-static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
++set_target_properties(jerasure PROPERTIES VERSION ${JERASURE_VERSION_STRING} SOVERSION ${JERASURE_VERSION_MAJOR})
++set_target_properties(jerasure PROPERTIES CLEAN_DIRECT_OUTPUT 1)
++
++#Make static executables by default
++#SET(ibp_lib ibp-static)
++#To use shared libs
++#SET(ibp_lib ibp)
++#TARGET_LINK_LIBRARIES( ibp_perf ${ibp_lib} ${LIBS})
++
++configure_file(jerasure.pc.in jerasure.pc @ONLY) 
++
++install(TARGETS jerasure jerasure-static DESTINATION @CMAKE_INSTALL_LIBDIR@)
++install(FILES jerasure.h galois.h cauchy.h reed_sol.h liberation.h DESTINATION @CMAKE_INSTALL_INCLUDEDIR@)
++
++install(FILES "${CMAKE_CURRENT_BINARY_DIR}/jerasure.pc" DESTINATION @CMAKE_INSTALL_LIBDIR@/pkgconfig)
+--- /dev/null
++++ jerasure-1.2A/Examples/CMakeLists.txt
+@@ -0,0 +1,88 @@
++cmake_minimum_required(VERSION 2.6)
++
++# make a project
++project( jerasure C )
++
++# Set some cmake defaults
++#set(CMAKE_BUILD_TYPE "Debug")
++set(CMAKE_BUILD_TYPE "Release")
++
++set(CMAKE_C_FLAGS_DEBUG "${CMAKE_REQUIRED_FLAGS} -O0 -Wall -g" )
++set(CMAKE_C_FLAGS_RELEASE "-O ${CMAKE_REQUIRED_FLAGS} -O3 -Wall" )
++
++set(CMAKE_INCLUDE_CURRENT_DIR on)
++set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
++
++#check_include_file("stdint.h" HAVE_STDINT_H)
++#check_include_file("inttypes.h" HAVE_INTTYPES_H)
++
++
++#Prefer to use static libs
++if(WIN32)
++ set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
++else(WIN32)
++ set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
++endif(WIN32)
++
++find_package(Jerasure REQUIRED)
++SET(LIBS ${JERASURE_LIBRARY})
++INCLUDE_DIRECTORIES(${JERASURE_INCLUDE_DIR})
++
++SET(EXEC 
++    jerasure_01 jerasure_02 jerasure_03 jerasure_04 jerasure_05 jerasure_06 jerasure_07 jerasure_08
++    reed_sol_01 reed_sol_02 reed_sol_03 reed_sol_04
++    cauchy_01 cauchy_02 cauchy_03 cauchy_04
++    encoder decoder
++)
++
++FOREACH(ex ${EXEC})
++   ADD_EXECUTABLE(${ex} ${ex}.c )
++   TARGET_LINK_LIBRARIES( ${ex} ${LIBS})
++   SET_PROPERTY(TARGET ${ex} PROPERTY LINK_SEARCH_START_STATIC 1)  
++   SET_PROPERTY(TARGET ${ex} PROPERTY LINK_SEARCH_END_STATIC 1)  
++ENDFOREACH(ex)
++
++
++#ADD_EXECUTABLE(jerasure_01 jerasure_01.c )
++#TARGET_LINK_LIBRARIES( jerasure_01 ${LIBS})
++#SET_PROPERTY(TARGET jerasure_01 PROPERTY LINK_SEARCH_START_STATIC 1)
++#ADD_EXECUTABLE(jerasure_02 jerasure_02.c )
++#TARGET_LINK_LIBRARIES( jerasure_02 ${LIBS})
++#ADD_EXECUTABLE(jerasure_03 jerasure_03.c )
++#TARGET_LINK_LIBRARIES( jerasure_03 ${LIBS})
++#ADD_EXECUTABLE(jerasure_04 jerasure_04.c )
++#TARGET_LINK_LIBRARIES( jerasure_04 ${LIBS})
++#ADD_EXECUTABLE(jerasure_05 jerasure_05.c )
++#TARGET_LINK_LIBRARIES( jerasure_05 ${LIBS})
++#ADD_EXECUTABLE(jerasure_06 jerasure_06.c )
++#TARGET_LINK_LIBRARIES( jerasure_06 ${LIBS})
++#ADD_EXECUTABLE(jerasure_07 jerasure_07.c )
++#TARGET_LINK_LIBRARIES( jerasure_07 ${LIBS})
++#ADD_EXECUTABLE(jerasure_08 jerasure_08.c )
++#TARGET_LINK_LIBRARIES( jerasure_08 ${LIBS})
++
++#ADD_EXECUTABLE(reed_sol_01 reed_sol_01.c )
++#TARGET_LINK_LIBRARIES( reed_sol_01 ${LIBS})
++#ADD_EXECUTABLE(reed_sol_02 reed_sol_02.c )
++#TARGET_LINK_LIBRARIES( reed_sol_02 ${LIBS})
++#ADD_EXECUTABLE(reed_sol_03 reed_sol_03.c )
++#TARGET_LINK_LIBRARIES( reed_sol_03 ${LIBS})
++#ADD_EXECUTABLE(reed_sol_04 reed_sol_04.c )
++#TARGET_LINK_LIBRARIES( reed_sol_04 ${LIBS})
++
++#ADD_EXECUTABLE(cauchy_01 cauchy_01.c )
++#TARGET_LINK_LIBRARIES( cauchy_01 ${LIBS})
++#ADD_EXECUTABLE(cauchy_02 cauchy_02.c )
++#TARGET_LINK_LIBRARIES( cauchy_02 ${LIBS})
++#ADD_EXECUTABLE(cauchy_03 cauchy_03.c )
++#TARGET_LINK_LIBRARIES(cauchy_03 ${LIBS})
++#ADD_EXECUTABLE(cauchy_04 cauchy_04.c )
++#TARGET_LINK_LIBRARIES(cauchy_04 ${LIBS})
++
++#ADD_EXECUTABLE(encoder encoder.c )
++#TARGET_LINK_LIBRARIES(encoder ${LIBS})
++#ADD_EXECUTABLE(decoder encoder.c )
++#TARGET_LINK_LIBRARIES(decoder ${LIBS})
++
++
++
+--- /dev/null
++++ jerasure-1.2A/Examples/bootstrap
+@@ -0,0 +1,9 @@
++#!/bin/bash
++d=""
++[ "${1}" == "32" ] && d="32" && export cmflags='-D CMAKE_REQUIRED_FLAGS=-m32' && echo "Making 32-bit binaries"
++
++[ -e CMakeCache.txt ] && rm CMakeCache.txt
++
++prefix=/workspace/local${d}
++cmake ${cmflags} -DCMAKE_INSTALL_PREFIX=${prefix} -DCMAKE_INCLUDE_CURRENT_DIR=on -DCMAKE_VERBOSE_MAKEFILE=on CMakeLists.txt
++
+--- jerasure-1.2A.orig/Examples/cauchy_01.c
++++ jerasure-1.2A/Examples/cauchy_01.c
+@@ -48,12 +48,13 @@ POSSIBILITY OF SUCH DAMAGE.
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include "cauchy.h"
+ #include "jerasure.h"
+ #include "reed_sol.h"
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
+   fprintf(stderr, "usage: cauchy_01 n w - Prints the number of ones in the bitmatrix representation of n in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+--- jerasure-1.2A.orig/Examples/cauchy_02.c
++++ jerasure-1.2A/Examples/cauchy_02.c
+@@ -49,6 +49,7 @@ POSSIBILITY OF SUCH DAMAGE.
+ 	revised by S. Simmerman
+ 	2/25/08  
+ */
++
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -57,13 +58,14 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: cauchy_02 k m w - Scheduled CRS coding example with the original matrix in  GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       k+m must be <= 2^w.  It sets up a Cauchy distribution matrix using the original\n");
+   fprintf(stderr, "       Cauchy Distribution matrix construction algorithm, then it encodes\n");
+-  fprintf(stderr, "       k devices of w*%d bytes using smart bit-matrix scheduling.\n", sizeof(long));
++  fprintf(stderr, "       k devices of w*%d bytes using smart bit-matrix scheduling.\n", d);
+   fprintf(stderr, "       It decodes using bit-matrix scheduling as well.\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "This demonstrates: cauchy_original_coding_matrix()\n");
+@@ -122,7 +124,7 @@ int main(int argc, char **argv)
+   long l;
+   int k, w, i, j, m;
+   int *matrix, *bitmatrix, *m2, *x, *y;
+-  char **data, **coding, **ptrs;
++  char **data, **coding;
+   int **smart;
+   int no;
+   int *erasures, *erased;
+@@ -145,7 +147,7 @@ int main(int argc, char **argv)
+   }
+   printf("Matrix has %d ones\n\n", no);
+   jerasure_print_matrix(matrix, m, k, w);
+-  printf("\n", no);
++  printf("\n");
+   bitmatrix = jerasure_matrix_to_bitmatrix(k, m, w, matrix);
+ 
+   smart = jerasure_smart_bitmatrix_to_schedule(k, m, w, bitmatrix);
+--- jerasure-1.2A.orig/Examples/cauchy_03.c
++++ jerasure-1.2A/Examples/cauchy_03.c
+@@ -59,7 +59,7 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
+   fprintf(stderr, "usage: cauchy_03 k m w - Scheduled CRS coding example with improved matrix in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+@@ -123,8 +123,8 @@ int main(int argc, char **argv)
+ {
+   long l;
+   int k, w, i, j, m;
+-  int *matrix, *bitmatrix, *m2, *x, *y;
+-  char **data, **coding, **ptrs;
++  int *matrix, *bitmatrix;
++  char **data, **coding;
+   int **smart;
+   int no;
+   int *erasures, *erased;
+@@ -153,7 +153,7 @@ int main(int argc, char **argv)
+   }
+   printf("The Improved Matrix has %d ones\n\n", no);
+   jerasure_print_matrix(matrix, m, k, w);
+-  printf("\n", no);
++  printf("\n");
+   bitmatrix = jerasure_matrix_to_bitmatrix(k, m, w, matrix);
+ 
+   smart = jerasure_smart_bitmatrix_to_schedule(k, m, w, bitmatrix);
+--- jerasure-1.2A.orig/Examples/cauchy_04.c
++++ jerasure-1.2A/Examples/cauchy_04.c
+@@ -60,13 +60,14 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: cauchy_04 k m w - Scheduled CRS coding example with a good matrix in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       k+m must be <= 2^w.  It sets up a Cauchy distribution matrix using \n");
+   fprintf(stderr, "       cauchy_good_coding_matrix(), then it encodes\n");
+-  fprintf(stderr, "       k devices of w*%d bytes using smart bit-matrix scheduling.\n", sizeof(long));
++  fprintf(stderr, "       k devices of w*%d bytes using smart bit-matrix scheduling.\n", d);
+   fprintf(stderr, "       It decodes using bit-matrix scheduling as well.\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "This demonstrates: cauchy_original_coding_matrix()\n");
+@@ -124,7 +125,7 @@ int main(int argc, char **argv)
+   long l;
+   int k, w, i, j, m;
+   int *matrix, *bitmatrix;
+-  char **data, **coding, **ptrs;
++  char **data, **coding;
+   int **smart;
+   int no;
+   int *erasures, *erased;
+--- /dev/null
++++ jerasure-1.2A/Examples/cmake/FindJerasure.cmake
+@@ -0,0 +1,55 @@
++# -*- cmake -*-
++
++# - Find Jerasure Libraries
++# Find the Jerasure includes and libraries
++# This module defines
++#  JERASURE_INCLUDE_DIR and JERASURE_INCLUDE_DIR, where to find apr.h, etc.
++#  JERASURE_LIBRARIES and JERASURE_LIBRARIES, the libraries needed to use APR.
++#  JERASURE_FOUND and JERASURE_FOUND, If false, do not try to use APR.
++# also defined, but not for general use are
++#  JERASURE_LIBRARY and JERASURE_LIBRARY, where to find the APR library.
++
++# APR first.
++
++#FIND_PATH(JERASURE_INCLUDE_DIR jerasure.h
++#/usr/local/include
++#/usr/include
++#$ENV{HOME}/include
++#$ENV{CMAKE_PREFIX_PATH}/include
++#ENV{CMAKE_INCLUDE_PATH}
++#)
++
++FIND_PATH(JERASURE_INCLUDE_DIR NAMES jerasure.h galois.h cauchy.h reed_sol.h liberation.h)
++
++
++SET(JERASURE_NAMES jerasure)
++FIND_LIBRARY(JERASURE_LIBRARY
++  NAMES ${JERASURE_NAMES}
++)
++
++IF (JERASURE_LIBRARY AND JERASURE_INCLUDE_DIR)
++    SET(JERASURE_LIBRARIES ${JERASURE_LIBRARY})
++    SET(JERASURE_FOUND "YES")
++ELSE (JERASURE_LIBRARY AND JERASURE_INCLUDE_DIR)
++  SET(JERASURE_FOUND "NO")
++ENDIF (JERASURE_LIBRARY AND JERASURE_INCLUDE_DIR)
++
++
++IF (JERASURE_FOUND)
++   IF (NOT JERASURE_FIND_QUIETLY)
++      MESSAGE(STATUS "Found JERASURE: ${JERASURE_LIBRARIES}")
++   ENDIF (NOT JERASURE_FIND_QUIETLY)
++ELSE (JERASURE_FOUND)
++   IF (JERASURE_FIND_REQUIRED)
++      MESSAGE(FATAL_ERROR "Could not find JERASURE library")
++   ENDIF (JERASURE_FIND_REQUIRED)
++ENDIF (JERASURE_FOUND)
++
++# Deprecated declarations.
++SET (NATIVE_JERASURE_INCLUDE_PATH ${JERASURE_INCLUDE_DIR} )
++GET_FILENAME_COMPONENT (NATIVE_JERASURE_LIB_PATH ${JERASURE_LIBRARY} PATH)
++
++MARK_AS_ADVANCED(
++  JERASURE_LIBRARY
++  JERASURE_INCLUDE_DIR
++)
+--- jerasure-1.2A.orig/Examples/decoder.c
++++ jerasure-1.2A/Examples/decoder.c
+@@ -61,10 +61,12 @@ it is assumed that encoder.c has been ca
+ same arguments, and encoder.c does error check.
+ */
+ 
++#include <unistd.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/time.h>
++#include <time.h>
+ #include <sys/stat.h>
+ #include <signal.h>
+ #include "jerasure.h"
+@@ -88,6 +90,8 @@ void ctrl_bs_handler(int dummy);
+ 
+ int main (int argc, char **argv) {
+ 	FILE *fp;				// File pointer
++        char *dummy;
++        int err;
+ 
+ 	/* Jerasure arguments */
+ 	char **data;
+@@ -128,7 +132,8 @@ int main (int argc, char **argv) {
+ 	matrix = NULL;
+ 	bitmatrix = NULL;
+ 	totalsec = 0.0;
+-	
++        blocksize = -1;
++
+ 	/* Start timing */
+ 	gettimeofday(&t1, &tz);
+ 
+@@ -138,7 +143,7 @@ int main (int argc, char **argv) {
+ 		exit(0);
+ 	}
+ 	curdir = (char *)malloc(sizeof(char)*100);
+-	getcwd(curdir, 100);
++	dummy = getcwd(curdir, 100);
+ 	
+ 	/* Begin recreation of file names */
+ 	cs1 = (char*)malloc(sizeof(char)*strlen(argv[1]));
+@@ -168,7 +173,7 @@ int main (int argc, char **argv) {
+           exit(1);
+         }
+ 	temp = (char *)malloc(sizeof(char)*(strlen(argv[1])+10));
+-	fscanf(fp, "%s", temp);	
++	err = fscanf(fp, "%s", temp);	
+ 	
+ 	if (fscanf(fp, "%d", &origsize) != 1) {
+ 		fprintf(stderr, "Original size is not valid\n");
+@@ -179,10 +184,10 @@ int main (int argc, char **argv) {
+ 		exit(0);
+ 	}
+ 	c_tech = (char *)malloc(sizeof(char)*(strlen(argv[1])+10));
+-	fscanf(fp, "%s", c_tech);
+-	fscanf(fp, "%d", &tech);
++	err = fscanf(fp, "%s", c_tech);
++	err = fscanf(fp, "%d", &tech);
+ 	method = tech;
+-	fscanf(fp, "%d", &readins);
++	err = fscanf(fp, "%d", &readins);
+ 	fclose(fp);	
+ 
+ 	/* Allocate memory */
+@@ -210,6 +215,8 @@ int main (int argc, char **argv) {
+ 	/* Create coding matrix or bitmatrix */
+ 	switch(tech) {
+ 		case No_Coding:
++                case RDP:
++                case EVENODD:
+ 			break;
+ 		case Reed_Sol_Van:
+ 			matrix = reed_sol_vandermonde_coding_matrix(k, m, w);
+@@ -263,11 +270,11 @@ int main (int argc, char **argv) {
+ 					stat(fname, &status);
+ 					blocksize = status.st_size;
+ 					data[i-1] = (char *)malloc(sizeof(char)*blocksize);
+-					fread(data[i-1], sizeof(char), blocksize, fp);
++					err = fread(data[i-1], sizeof(char), blocksize, fp);
+ 				}
+ 				else {
+ 					fseek(fp, blocksize*(n-1), SEEK_SET); 
+-					fread(data[i-1], sizeof(char), buffersize/k, fp);
++					err = fread(data[i-1], sizeof(char), buffersize/k, fp);
+ 				}
+ 				fclose(fp);
+ 			}
+@@ -286,12 +293,12 @@ int main (int argc, char **argv) {
+ 					stat(fname, &status);
+ 					blocksize = status.st_size;
+ 					coding[i-1] = (char *)malloc(sizeof(char)*blocksize);
+-					fread(coding[i-1], sizeof(char), blocksize, fp);
++					err = fread(coding[i-1], sizeof(char), blocksize, fp);
+ 				}
+ 				else {
+ 					fseek(fp, blocksize*(n-1), SEEK_SET);
+-					fread(coding[i-1], sizeof(char), blocksize, fp);
+-				}	
++					err = fread(coding[i-1], sizeof(char), blocksize, fp);
++				}
+ 				fclose(fp);
+ 			}
+ 		}
+@@ -374,7 +381,7 @@ int main (int argc, char **argv) {
+ 	free(coding);
+ 	free(erasures);
+ 	free(erased);
+-	
++
+ 	/* Stop timing and print time */
+ 	gettimeofday(&t2, &tz);
+ 	tsec = 0;
+@@ -385,7 +392,9 @@ int main (int argc, char **argv) {
+ 	tsec -= t1.tv_sec;
+ 	printf("Decoding (MB/sec): %0.10f\n", (origsize/1024/1024)/totalsec);
+ 	printf("De_Total (MB/sec): %0.10f\n\n", (origsize/1024/1024)/tsec);
+-}	
++
++        return(0);
++}
+ 
+ void ctrl_bs_handler(int dummy) {
+ 	time_t mytime;
+--- jerasure-1.2A.orig/Examples/encoder.c
++++ jerasure-1.2A/Examples/encoder.c
+@@ -58,7 +58,10 @@ is the file name with "_k#" or "_m#" and
+ (For example, inputfile test.txt would yield file "test_k1.txt".)
+ 
+  */
++
++#include <unistd.h>
+ #include <sys/time.h>
++#include <time.h>
+ #include <sys/stat.h>
+ #include <string.h>
+ #include <stdio.h>
+@@ -100,42 +103,40 @@ int jfread(void *ptr, int size, int nmem
+ 
+ int main (int argc, char **argv) {
+ 	FILE *fp, *fp2;				// file pointers
+-	char *memblock;				// reading in file
+ 	char *block;				// padding file
+ 	int size, newsize;			// size of file and temp size 
+ 	struct stat status;			// finding file size
+ 
+-	
++
+ 	enum Coding_Technique tech;		// coding technique (parameter)
+ 	int k, m, w, packetsize;		// parameters
+ 	int buffersize;					// paramter
+-	int i, j;						// loop control variables
++	int i;						// loop control variables
+ 	int blocksize;					// size of k+m files
+ 	int total;
+ 	int extra;
+-	
++        char *dummy;
++
+ 	/* Jerasure Arguments */
+-	char **data;				
++	char **data;
+ 	char **coding;
+ 	int *matrix;
+ 	int *bitmatrix;
+ 	int **schedule;
+-	int *erasure;
+-	int *erased;
+-	
++
+ 	/* Creation of file name variables */
+ 	char temp[5];
+ 	char *s1, *s2, *extension;
+ 	char *fname;
+ 	int md;
+ 	char *curdir;
+-	
++
+ 	/* Timing variables */
+ 	struct timeval t1, t2, t3, t4;
+ 	struct timezone tz;
+ 	double tsec;
+ 	double totalsec;
+-	struct timeval start, stop;
++	struct timeval start;
+ 
+ 	/* Find buffersize */
+ 	int up, down;
+@@ -329,7 +330,7 @@ int main (int argc, char **argv) {
+ 
+ 	/* Get current working directory for construction of file names */
+ 	curdir = (char*)malloc(sizeof(char)*1000);	
+-	getcwd(curdir, 1000);
++	dummy = getcwd(curdir, 1000);
+ 
+         if (argv[1][0] != '-') {
+ 
+@@ -465,6 +466,10 @@ int main (int argc, char **argv) {
+ 			bitmatrix = liber8tion_coding_bitmatrix(k);
+ 			schedule = jerasure_smart_bitmatrix_to_schedule(k, m, w, bitmatrix);
+ 			break;
++		case Reed_Sol_R6_Op:
++                case RDP:
++                case EVENODD:
++			break;
+ 	}
+ 	gettimeofday(&start, &tz);	
+ 	gettimeofday(&t4, &tz);
+@@ -531,6 +536,9 @@ int main (int argc, char **argv) {
+ 			case Liber8tion:
+ 				jerasure_schedule_encode(k, m, w, schedule, data, coding, blocksize, packetsize);
+ 				break;
++                        case RDP:
++                        case EVENODD:
++                                break;
+ 		}
+ 		gettimeofday(&t4, &tz);
+ 	
+@@ -607,6 +615,8 @@ int main (int argc, char **argv) {
+ 	tsec -= t1.tv_sec;
+ 	printf("Encoding (MB/sec): %0.10f\n", (size/1024/1024)/totalsec);
+ 	printf("En_Total (MB/sec): %0.10f\n", (size/1024/1024)/tsec);
++
++        return(0);
+ }
+ 
+ /* is_prime returns 1 if number if prime, 0 if not prime */
+@@ -621,6 +631,8 @@ int is_prime(int w) {
+ 			else { return 0; }
+ 		}
+ 	}
++
++        return(0);
+ }
+ 
+ /* Handles ctrl-\ event */
+--- jerasure-1.2A.orig/Examples/jerasure_05.c
++++ jerasure-1.2A/Examples/jerasure_05.c
+@@ -56,13 +56,13 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
+   fprintf(stderr, "usage: jerasure_05 k m w size - Does a simple Reed-Solomon coding example in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       k+m must be <= 2^w.  w can be 8, 16 or 32.\n");
+   fprintf(stderr, "       It sets up a Cauchy distribution matrix and encodes\n");
+-  fprintf(stderr, "       k devices of size bytes with it.  Then it decodes.\n", sizeof(long));
++  fprintf(stderr, "       k devices of size bytes with it.  Then it decodes.\n");
+   fprintf(stderr, "       After that, it decodes device 0 by using jerasure_make_decoding_matrix()\n");
+   fprintf(stderr, "       and jerasure_matrix_dotprod().\n");
+   fprintf(stderr, "       \n");
+@@ -80,7 +80,6 @@ static void print_data_and_coding(int k,
+ {
+   int i, j, x;
+   int n, sp;
+-  long l;
+ 
+   if(k > m) n = k;
+   else n = m;
+--- jerasure-1.2A.orig/Examples/jerasure_07.c
++++ jerasure-1.2A/Examples/jerasure_07.c
+@@ -58,10 +58,11 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: jerasure_07 k m w - Scheduled Cauchy Reed-Solomon coding example in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       k+m must be <= 2^w.  It sets up a Cauchy distribution matrix and encodes\n");
+-  fprintf(stderr, "       k sets of w*%d bytes. It uses bit-matrix scheduling, both smart and dumb.\n", sizeof(long));
++  fprintf(stderr, "       k sets of w*%d bytes. It uses bit-matrix scheduling, both smart and dumb.\n", d);
+   fprintf(stderr, "       It decodes using bit-matrix scheduling, then shows an example of\n");
+   fprintf(stderr, "       using jerasure_do_scheduled_operations().\n");
+   fprintf(stderr, "       \n");
+--- jerasure-1.2A.orig/Examples/jerasure_08.c
++++ jerasure-1.2A/Examples/jerasure_08.c
+@@ -57,12 +57,13 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: jerasure_08 k w - Example schedule cache usage with RAID-6\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       m=2.  k+m must be <= 2^w.  It sets up a RAID-6 distribution matrix and encodes\n");
+-  fprintf(stderr, "       k sets of w*%d bytes. It creates a schedule cache for decoding.\n", sizeof(long));
++  fprintf(stderr, "       k sets of w*%d bytes. It creates a schedule cache for decoding.\n", d);
+   fprintf(stderr, "       It demonstrates using the schedule cache for both encoding and decoding.\n");
+   fprintf(stderr, "       Then it demonstrates using jerasure_do_parity() to re-encode the first.\n");
+   fprintf(stderr, "       coding device\n");
+@@ -124,7 +125,7 @@ int main(int argc, char **argv)
+   long l;
+   int k, w, i, j, m;
+   int *matrix, *bitmatrix;
+-  char **data, **coding, **ptrs;
++  char **data, **coding;
+   int **smart, ***cache;
+   int *erasures, *erased;
+   double stats[3];
+--- jerasure-1.2A.orig/Examples/liberation_01.c
++++ jerasure-1.2A/Examples/liberation_01.c
+@@ -60,10 +60,11 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: liberation_01 k w - Liberation RAID-6 coding/decoding example in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       w must be prime and k <= w.  It sets up a Liberation bit-matrix\n");
+-  fprintf(stderr, "       then it encodes k devices of w*%d bytes using dumb bit-matrix scheduling.\n", sizeof(long));
++  fprintf(stderr, "       then it encodes k devices of w*%d bytes using dumb bit-matrix scheduling.\n", d);
+   fprintf(stderr, "       It decodes using smart bit-matrix scheduling.\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "This demonstrates: liberation_coding_bitmatrix()\n");
+--- jerasure-1.2A.orig/Examples/makefile
++++ /dev/null
+@@ -1,186 +0,0 @@
+-# Examples/makefile
+-# Jerasure - A C/C++ Library for a Variety of Reed-Solomon and RAID-6 Erasure Coding Techniques
+-# 
+-# Revision 1.2A
+-# May 24, 2011
+-# 
+-# James S. Plank
+-# Department of Electrical Engineering and Computer Science
+-# University of Tennessee
+-# Knoxville, TN 37996
+-# plank@cs.utk.edu
+-# 
+-# Copyright (c) 2011, James S. Plank
+-# All rights reserved.
+-# 
+-# Redistribution and use in source and binary forms, with or without
+-# modification, are permitted provided that the following conditions
+-# are met:
+-# 
+-#  - Redistributions of source code must retain the above copyright
+-#    notice, this list of conditions and the following disclaimer.
+-# 
+-#  - Redistributions in binary form must reproduce the above copyright
+-#    notice, this list of conditions and the following disclaimer in
+-#    the documentation and/or other materials provided with the
+-#    distribution.
+-# 
+-#  - Neither the name of the University of Tennessee nor the names of its
+-#    contributors may be used to endorse or promote products derived
+-#    from this software without specific prior written permission.
+-# 
+-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+-# HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+-# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+-# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-# POSSIBILITY OF SUCH DAMAGE.
+-
+-
+-CC = gcc  
+-CFLAGS = -O2 -I$(HOME)/include
+-
+-ALL =	jerasure_01 \
+-        jerasure_02 \
+-        jerasure_03 \
+-        jerasure_04 \
+-        jerasure_05 \
+-        jerasure_06 \
+-        jerasure_07 \
+-        jerasure_08 \
+-        reed_sol_01 \
+-        reed_sol_02 \
+-        reed_sol_03 \
+-        reed_sol_04 \
+-        cauchy_01 \
+-        cauchy_02 \
+-        cauchy_03 \
+-        cauchy_04 \
+-        liberation_01 \
+-		encoder \
+-		decoder \
+-
+-all: $(ALL)
+-
+-clean:
+-	rm -f core *.o $(ALL) a.out cauchy.h cauchy.c liberation.h liberation.c reed_sol.c reed_sol.h\
+-              jerasure.c jerasure.h galois.c galois.h
+-
+-.SUFFIXES: .c .o
+-.c.o:
+-	$(CC) $(CFLAGS) -c $*.c
+-
+-liberation.h: ../liberation.h
+-	rm -f liberation.h ; cp ../liberation.h . ; chmod 0444 liberation.h
+-
+-liberation.c: ../liberation.c
+-	rm -f liberation.c ; cp ../liberation.c . ; chmod 0444 liberation.c
+-
+-cauchy.h: ../cauchy.h
+-	rm -f cauchy.h ; cp ../cauchy.h . ; chmod 0444 cauchy.h
+-
+-cauchy.c: ../cauchy.c
+-	rm -f cauchy.c ; cp ../cauchy.c . ; chmod 0444 cauchy.c
+-
+-reed_sol.h: ../reed_sol.h
+-	rm -f reed_sol.h ; cp ../reed_sol.h . ; chmod 0444 reed_sol.h
+-
+-reed_sol.c: ../reed_sol.c
+-	rm -f reed_sol.c ; cp ../reed_sol.c . ; chmod 0444 reed_sol.c
+-
+-jerasure.h: ../jerasure.h
+-	rm -f jerasure.h ; cp ../jerasure.h . ; chmod 0444 jerasure.h
+-
+-jerasure.c: ../jerasure.c
+-	rm -f jerasure.c ; cp ../jerasure.c . ; chmod 0444 jerasure.c
+-
+-galois.h: ../galois.h
+-	rm -f galois.h ; cp ../galois.h . ; chmod 0444 galois.h
+-
+-galois.c: ../galois.c
+-	rm -f galois.c ; cp ../galois.c . ; chmod 0444 galois.c
+-
+-galois.o: galois.h
+-jerasure.o: jerasure.h galois.h
+-
+-jerasure_01.o: galois.h jerasure.h 
+-jerasure_01: jerasure_01.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_01 jerasure_01.o jerasure.o galois.o
+-
+-jerasure_02.o: galois.h jerasure.h 
+-jerasure_02: jerasure_02.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_02 jerasure_02.o jerasure.o galois.o
+-
+-jerasure_03.o: galois.h jerasure.h 
+-jerasure_03: jerasure_03.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_03 jerasure_03.o jerasure.o galois.o
+-
+-jerasure_04.o: galois.h jerasure.h 
+-jerasure_04: jerasure_04.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_04 jerasure_04.o jerasure.o galois.o
+-
+-jerasure_05.o: galois.h jerasure.h 
+-jerasure_05: jerasure_05.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_05 jerasure_05.o jerasure.o galois.o
+-
+-jerasure_06.o: galois.h jerasure.h 
+-jerasure_06: jerasure_06.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_06 jerasure_06.o jerasure.o galois.o
+-
+-jerasure_07.o: galois.h jerasure.h 
+-jerasure_07: jerasure_07.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_07 jerasure_07.o jerasure.o galois.o
+-
+-jerasure_08.o: galois.h jerasure.h 
+-jerasure_08: jerasure_08.o galois.o jerasure.o
+-	$(CC) $(CFLAGS) -o jerasure_08 jerasure_08.o jerasure.o galois.o
+-
+-reed_sol_01.o: galois.h reed_sol.h jerasure.h
+-reed_sol_01: reed_sol_01.o galois.o jerasure.o reed_sol.o
+-	$(CC) $(CFLAGS) -o reed_sol_01 reed_sol_01.o reed_sol.o jerasure.o galois.o
+-
+-reed_sol_02.o: galois.h reed_sol.h jerasure.h
+-reed_sol_02: reed_sol_02.o galois.o jerasure.o reed_sol.o
+-	$(CC) $(CFLAGS) -o reed_sol_02 reed_sol_02.o reed_sol.o jerasure.o galois.o
+-
+-reed_sol_03.o: galois.h reed_sol.h jerasure.h
+-reed_sol_03: reed_sol_03.o galois.o jerasure.o reed_sol.o
+-	$(CC) $(CFLAGS) -o reed_sol_03 reed_sol_03.o reed_sol.o jerasure.o galois.o
+-
+-reed_sol_04.o: galois.h reed_sol.h jerasure.h
+-reed_sol_04: reed_sol_04.o galois.o jerasure.o reed_sol.o
+-	$(CC) $(CFLAGS) -o reed_sol_04 reed_sol_04.o reed_sol.o jerasure.o galois.o
+-
+-cauchy_01.o: galois.h cauchy.h jerasure.h
+-cauchy_01: cauchy_01.o galois.o jerasure.o cauchy.o
+-	$(CC) $(CFLAGS) -o cauchy_01 cauchy_01.o cauchy.o jerasure.o galois.o
+-
+-cauchy_02.o: galois.h cauchy.h jerasure.h
+-cauchy_02: cauchy_02.o galois.o jerasure.o cauchy.o
+-	$(CC) $(CFLAGS) -o cauchy_02 cauchy_02.o cauchy.o jerasure.o galois.o
+-
+-cauchy_03.o: galois.h cauchy.h jerasure.h
+-cauchy_03: cauchy_03.o galois.o jerasure.o cauchy.o
+-	$(CC) $(CFLAGS) -o cauchy_03 cauchy_03.o cauchy.o jerasure.o galois.o
+-
+-cauchy_04.o: galois.h cauchy.h jerasure.h
+-cauchy_04: cauchy_04.o galois.o jerasure.o cauchy.o
+-	$(CC) $(CFLAGS) -o cauchy_04 cauchy_04.o cauchy.o jerasure.o galois.o
+-
+-liberation_01.o: galois.h liberation.h jerasure.h
+-liberation_01: liberation_01.o galois.o jerasure.o liberation.o
+-	$(CC) $(CFLAGS) -o liberation_01 liberation_01.o liberation.o jerasure.o galois.o
+-
+-encoder.o: galois.h liberation.h jerasure.h reed_sol.h cauchy.h
+-encoder: encoder.o galois.o jerasure.o liberation.o reed_sol.o cauchy.o
+-	$(CC) $(CFLAGS) -o encoder encoder.o liberation.o jerasure.o galois.o reed_sol.o cauchy.o
+-
+-decoder.o: galois.h liberation.h jerasure.h reed_sol.h cauchy.h
+-decoder: decoder.o galois.o jerasure.o liberation.o reed_sol.o cauchy.o
+-	$(CC) $(CFLAGS) -o decoder decoder.o liberation.o jerasure.o galois.o reed_sol.o cauchy.o
+--- jerasure-1.2A.orig/Examples/reed_sol_01.c
++++ jerasure-1.2A/Examples/reed_sol_01.c
+@@ -58,13 +58,14 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: reed_sol_01 k m w - Does a simple Reed-Solomon coding example in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       w must be 8, 16 or 32.  k+m must be <= 2^w.  It sets up a classic\n");
+   fprintf(stderr, "       Vandermonde-based distribution matrix and encodes k devices of\n");
+-  fprintf(stderr, "       %d bytes each with it.  Then it decodes.\n", sizeof(long));
++  fprintf(stderr, "       %d bytes each with it.  Then it decodes.\n", d);
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "This demonstrates: jerasure_matrix_encode()\n");
+   fprintf(stderr, "                   jerasure_matrix_decode()\n");
+@@ -79,7 +80,6 @@ static void print_data_and_coding(int k,
+ {
+   int i, j, x;
+   int n, sp;
+-  long l;
+ 
+   if(k > m) n = k;
+   else n = m;
+@@ -115,11 +115,10 @@ static void print_data_and_coding(int k,
+ int main(int argc, char **argv)
+ {
+   long l;
+-  int k, w, i, j, m;
++  int k, w, i, m;
+   int *matrix;
+   char **data, **coding;
+   int *erasures, *erased;
+-  int *decoding_matrix, *dm_ids;
+   
+   if (argc != 4) usage(NULL);
+   if (sscanf(argv[1], "%d", &k) == 0 || k <= 0) usage("Bad k");
+--- jerasure-1.2A.orig/Examples/reed_sol_02.c
++++ jerasure-1.2A/Examples/reed_sol_02.c
+@@ -52,7 +52,7 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
+   fprintf(stderr, "usage: reed_sol_02 k m w - Vandermonde matrices in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+@@ -71,8 +71,7 @@ usage(char *s)
+ 
+ int main(int argc, char **argv)
+ {
+-  long l;
+-  int k, w, i, j, m;
++  int k, w, m;
+   int *matrix;
+   
+   if (argc != 4) usage(NULL);
+--- jerasure-1.2A.orig/Examples/reed_sol_03.c
++++ jerasure-1.2A/Examples/reed_sol_03.c
+@@ -58,13 +58,14 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
++  int d = sizeof(long);
+   fprintf(stderr, "usage: reed_sol_03 k w - Does a simple RAID-6 coding example in GF(2^w).\n");
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "       w must be 8, 16 or 32.  k+2 must be <= 2^w.  It sets up a classic\n");
+   fprintf(stderr, "       RAID-6 coding matrix based on Anvin's optimization and encodes\n");
+-  fprintf(stderr, "       %d-byte devices with it.  Then it decodes.\n", sizeof(long));
++  fprintf(stderr, "       %d-byte devices with it.  Then it decodes.\n", d);
+   fprintf(stderr, "       \n");
+   fprintf(stderr, "This demonstrates: reed_sol_r6_encode()\n");
+   fprintf(stderr, "                   reed_sol_r6_coding_matrix()\n");
+@@ -80,7 +81,6 @@ static void print_data_and_coding(int k,
+ {
+   int i, j, x;
+   int n, sp;
+-  long l;
+ 
+   if(k > m) n = k;
+   else n = m;
+@@ -116,11 +116,10 @@ static void print_data_and_coding(int k,
+ int main(int argc, char **argv)
+ {
+   long l;
+-  int k, w, i, j, m;
++  int k, w, i, m;
+   int *matrix;
+   char **data, **coding;
+   int *erasures, *erased;
+-  int *decoding_matrix, *dm_ids;
+   
+   if (argc != 3) usage(NULL);
+   if (sscanf(argv[1], "%d", &k) == 0 || k <= 0) usage("Bad k");
+--- jerasure-1.2A.orig/Examples/reed_sol_04.c
++++ jerasure-1.2A/Examples/reed_sol_04.c
+@@ -46,6 +46,7 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+  */
+ 
++#include <time.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -54,7 +55,7 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #define talloc(type, num) (type *) malloc(sizeof(type)*(num))
+ 
+-usage(char *s)
++void usage(char *s)
+ {
+   fprintf(stderr, "usage: reed_sol_04 w - Shows reed_sol_galois_wXX_region_multby_2\n");
+   fprintf(stderr, "       \n");
+@@ -108,5 +109,7 @@ int main(int argc, char **argv)
+     for (i = 0; i < 4*sizeof(int)/sizeof(int); i++) {
+        printf("Int %2d: %10u *2 = %10u\n", i, xi[i], yi[i]);
+     }
+-  } 
++  }
++
++  return(0);
+ }
+--- /dev/null
++++ jerasure-1.2A/bootstrap
+@@ -0,0 +1,10 @@
++#!/bin/bash
++d=""
++[ "${1}" == "32" ] && d="32" && export cmflags='-D CMAKE_REQUIRED_FLAGS=-m32' && echo "Making 32-bit binaries"
++
++[ -e CMakeCache.txt ] && rm CMakeCache.txt
++
++[ "${PREFIX}" == "" ] && PREFIX=/usr/local
++
++cmake ${cmflags} -DCMAKE_INSTALL_PREFIX=${PREFIX}${d} -DCMAKE_INCLUDE_CURRENT_DIR=on -DCMAKE_VERBOSE_MAKEFILE=on CMakeLists.txt
++
+--- /dev/null
++++ jerasure-1.2A/cmake/FindJerasure.cmake
+@@ -0,0 +1,58 @@
++# -*- cmake -*-
++
++# - Find Apache Portable Runtime
++# Find the APR includes and libraries
++# This module defines
++#  APRUTIL_INCLUDE_DIR and APRUTIL_INCLUDE_DIR, where to find apr.h, etc.
++#  APRUTIL_LIBRARIES and APRUTIL_LIBRARIES, the libraries needed to use APR.
++#  APRUTIL_FOUND and APRUTIL_FOUND, If false, do not try to use APR.
++# also defined, but not for general use are
++#  APRUTIL_LIBRARY and APRUTIL_LIBRARY, where to find the APR library.
++
++# APR first.
++
++FIND_PATH(APRUTIL_INCLUDE_DIR apr.h
++/usr/local/include/apr-1
++/usr/local/include/apr-1.0
++/usr/include/apr-1
++/usr/include/apr-1.0
++$ENV{HOME}/include/apr-1
++$ENV{HOME}/include/apr-1.0
++$ENV{CMAKE_PREFIX_PATH}/include/apr-1
++$ENV{CMAKE_PREFIX_PATH}/include/apr-1.0
++$ENV{CMAKE_INCLUDE_PATH}/apr-1
++$ENV{CMAKE_INCLUDE_PATH}/apr-1.0
++)
++
++SET(APRUTIL_NAMES ${APRUTIL_NAMES} aprutil-1)
++FIND_LIBRARY(APRUTIL_LIBRARY
++  NAMES ${APRUTIL_NAMES}
++  PATHS /usr/lib /usr/local/lib $ENV{HOME}/lib $ENV{CMAKE_PREFIX_PATH}/lib $ENV{CMAKE_LIBRARY_PATH}
++  )
++
++IF (APRUTIL_LIBRARY AND APRUTIL_INCLUDE_DIR)
++    SET(APRUTIL_LIBRARIES ${APRUTIL_LIBRARY})
++    SET(APRUTIL_FOUND "YES")
++ELSE (APRUTIL_LIBRARY AND APRUTIL_INCLUDE_DIR)
++  SET(APRUTIL_FOUND "NO")
++ENDIF (APRUTIL_LIBRARY AND APRUTIL_INCLUDE_DIR)
++
++
++IF (APRUTIL_FOUND)
++   IF (NOT APRUTIL_FIND_QUIETLY)
++      MESSAGE(STATUS "Found APRUtil: ${APRUTIL_LIBRARIES}")
++   ENDIF (NOT APRUTIL_FIND_QUIETLY)
++ELSE (APRUTIL_FOUND)
++   IF (APRUTIL_FIND_REQUIRED)
++      MESSAGE(FATAL_ERROR "Could not find APRUtil library")
++   ENDIF (APRUTIL_FIND_REQUIRED)
++ENDIF (APRUTIL_FOUND)
++
++# Deprecated declarations.
++SET (NATIVE_APRUTIL_INCLUDE_PATH ${APRUTIL_INCLUDE_DIR} )
++GET_FILENAME_COMPONENT (NATIVE_APRUTIL_LIB_PATH ${APRUTIL_LIBRARY} PATH)
++
++MARK_AS_ADVANCED(
++  APRUTIL_LIBRARY
++  APRUTIL_INCLUDE_DIR
++  )
+--- jerasure-1.2A.orig/galois.c
++++ jerasure-1.2A/galois.c
+@@ -49,6 +49,7 @@ POSSIBILITY OF SUCH DAMAGE.
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <pthread.h>
+ 
+ #include "galois.h"
+ 
+@@ -58,9 +59,12 @@ POSSIBILITY OF SUCH DAMAGE.
+ #define LOGS (13)
+ #define SPLITW8 (14)
+ 
+-static int prim_poly[33] = 
+-{ 0, 
+-/*  1 */     1, 
++//** Initializer lock
++pthread_mutex_t _galois_lock = PTHREAD_MUTEX_INITIALIZER;
++
++static int prim_poly[33] =
++{ 0,
++/*  1 */     1,
+ /*  2 */    07,
+ /*  3 */    013,
+ /*  4 */    023,
+@@ -90,12 +94,12 @@ static int prim_poly[33] =
+ /* 28 */    02000000011,
+ /* 29 */    04000000005,
+ /* 30 */    010040000007,
+-/* 31 */    020000000011, 
++/* 31 */    020000000011,
+ /* 32 */    00020000007 };  /* Really 40020000007, but we're omitting the high order bit */
+ 
+-static int mult_type[33] = 
+-{ NONE, 
+-/*  1 */   TABLE, 
++static int mult_type[33] =
++{ NONE,
++/*  1 */   TABLE,
+ /*  2 */   TABLE,
+ /*  3 */   TABLE,
+ /*  4 */   TABLE,
+@@ -162,53 +166,70 @@ NULL, NULL, NULL, NULL, NULL, NULL, NULL
+ 
+ static int *galois_split_w8[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+ 
+-int galois_create_log_tables(int w)
++int _galois_create_log_tables(int w)
+ {
+   int j, b;
++  int *logt = NULL;
++  int *ilog = NULL;
+ 
+-  if (w > 30) return -1;
+-  if (galois_log_tables[w] != NULL) return 0;
+-  galois_log_tables[w] = (int *) malloc(sizeof(int)*nw[w]);
+-  if (galois_log_tables[w] == NULL) return -1; 
+-  
+-  galois_ilog_tables[w] = (int *) malloc(sizeof(int)*nw[w]*3);
+-  if (galois_ilog_tables[w] == NULL) { 
+-    free(galois_log_tables[w]);
+-    galois_log_tables[w] = NULL;
++  if (galois_log_tables[w] != NULL) return(0);
++
++  if (w > 30) return(-1);
++  logt = (int *) malloc(sizeof(int)*nw[w]);
++  if (logt == NULL) return(0);
++
++  ilog = (int *) malloc(sizeof(int)*nw[w]*3);
++  if (ilog == NULL) {
++    free(logt);
+     return -1;
+   }
+-  
++
+   for (j = 0; j < nw[w]; j++) {
+-    galois_log_tables[w][j] = nwm1[w];
+-    galois_ilog_tables[w][j] = 0;
+-  } 
+-  
++    logt[j] = nwm1[w];
++    ilog[j] = 0;
++  }
++
+   b = 1;
+   for (j = 0; j < nwm1[w]; j++) {
+-    if (galois_log_tables[w][b] != nwm1[w]) {
++    if (logt[b] != nwm1[w]) {
+       fprintf(stderr, "Galois_create_log_tables Error: j=%d, b=%d, B->J[b]=%d, J->B[j]=%d (0%o)\n",
+-              j, b, galois_log_tables[w][b], galois_ilog_tables[w][j], (b << 1) ^ prim_poly[w]);
++              j, b, logt[b], ilog[j], (b << 1) ^ prim_poly[w]);
++      fflush(stderr);
+       exit(1);
+     }
+-    galois_log_tables[w][b] = j;
+-    galois_ilog_tables[w][j] = b;
++    logt[b] = j;
++    ilog[j] = b;
+     b = b << 1;
+     if (b & nw[w]) b = (b ^ prim_poly[w]) & nwm1[w];
+   }
+   for (j = 0; j < nwm1[w]; j++) {
+-    galois_ilog_tables[w][j+nwm1[w]] = galois_ilog_tables[w][j];
+-    galois_ilog_tables[w][j+nwm1[w]*2] = galois_ilog_tables[w][j];
+-  } 
+-  galois_ilog_tables[w] += nwm1[w];
++    ilog[j+nwm1[w]] = ilog[j];
++    ilog[j+nwm1[w]*2] = ilog[j];
++  }
++
++  galois_ilog_tables[w] = &(ilog[nwm1[w]]);
++  galois_log_tables[w] = logt;
+   return 0;
+ }
+ 
++int galois_create_log_tables(int w)
++{
++  int err = 0;
++  pthread_mutex_lock(&_galois_lock);
++  if (galois_log_tables[w] == NULL) {
++     err = _galois_create_log_tables(w);
++  }
++  pthread_mutex_unlock(&_galois_lock);
++
++  return(err);
++}
++
+ int galois_logtable_multiply(int x, int y, int w)
+ {
+   int sum_j;
+ 
+   if (x == 0 || y == 0) return 0;
+-  
++
+   sum_j = galois_log_tables[w][x] + galois_log_tables[w][y];
+   /* if (sum_j >= nwm1[w]) sum_j -= nwm1[w];    Don't need to do this, 
+                                    because we replicate the ilog table twice.  */
+@@ -221,69 +242,85 @@ int galois_logtable_divide(int x, int y,
+   int z;
+ 
+   if (y == 0) return -1;
+-  if (x == 0) return 0; 
++  if (x == 0) return 0;
+   sum_j = galois_log_tables[w][x] - galois_log_tables[w][y];
+   /* if (sum_j < 0) sum_j += nwm1[w];   Don't need to do this, because we replicate the ilog table twice.   */
+   z = galois_ilog_tables[w][sum_j];
+   return z;
+ }
+ 
+-int galois_create_mult_tables(int w)
++int _galois_create_mult_tables(int w)
+ {
++  int *mult, *div;
+   int j, x, y, logx;
+ 
+   if (w >= 14) return -1;
+ 
+   if (galois_mult_tables[w] != NULL) return 0;
+-  galois_mult_tables[w] = (int *) malloc(sizeof(int) * nw[w] * nw[w]);
+-  if (galois_mult_tables[w] == NULL) return -1;
+-  
+-  galois_div_tables[w] = (int *) malloc(sizeof(int) * nw[w] * nw[w]);
+-  if (galois_div_tables[w] == NULL) {
+-    free(galois_mult_tables[w]);
+-    galois_mult_tables[w] = NULL;
++
++  mult = (int *) malloc(sizeof(int) * nw[w] * nw[w]);
++  if (mult == NULL) return -1;
++
++  div = (int *) malloc(sizeof(int) * nw[w] * nw[w]);
++  if (div == NULL) {
++    free(mult);
+     return -1;
+   }
+   if (galois_log_tables[w] == NULL) {
+-    if (galois_create_log_tables(w) < 0) {
+-      free(galois_mult_tables[w]);
+-      free(galois_div_tables[w]);
+-      galois_mult_tables[w] = NULL;
+-      galois_div_tables[w] = NULL;
++    if (_galois_create_log_tables(w) < 0) {
++      free(mult);
++      free(div);
+       return -1;
+     }
+   }
+ 
+  /* Set mult/div tables for x = 0 */
+   j = 0;
+-  galois_mult_tables[w][j] = 0;   /* y = 0 */
+-  galois_div_tables[w][j] = -1;
++  mult[j] = 0;   /* y = 0 */
++  div[j] = -1;
+   j++;
+   for (y = 1; y < nw[w]; y++) {   /* y > 0 */
+-    galois_mult_tables[w][j] = 0;
+-    galois_div_tables[w][j] = 0;
++    mult[j] = 0;
++    div[j] = 0;
+     j++;
+   }
+-  
++
+   for (x = 1; x < nw[w]; x++) {  /* x > 0 */
+-    galois_mult_tables[w][j] = 0; /* y = 0 */
+-    galois_div_tables[w][j] = -1;
++    mult[j] = 0; /* y = 0 */
++    div[j] = -1;
+     j++;
+     logx = galois_log_tables[w][x];
+     for (y = 1; y < nw[w]; y++) {  /* y > 0 */
+-      galois_mult_tables[w][j] = galois_ilog_tables[w][logx+galois_log_tables[w][y]]; 
+-      galois_div_tables[w][j] = galois_ilog_tables[w][logx-galois_log_tables[w][y]]; 
++      mult[j] = galois_ilog_tables[w][logx+galois_log_tables[w][y]];
++      div[j] = galois_ilog_tables[w][logx-galois_log_tables[w][y]];
+       j++;
+     }
+   }
++
++  galois_div_tables[w] = div;
++  galois_mult_tables[w] = mult;
++
+   return 0;
+ }
+ 
++int galois_create_mult_tables(int w)
++{
++  int err = 0;
++  pthread_mutex_lock(&_galois_lock);
++  if (galois_mult_tables[w] == NULL) {
++     err = _galois_create_mult_tables(w);
++  }
++  pthread_mutex_unlock(&_galois_lock);
++
++  return(err);
++}
++
+ int galois_ilog(int value, int w)
+ {
+   if (galois_ilog_tables[w] == NULL) {
+     if (galois_create_log_tables(w) < 0) {
+       fprintf(stderr, "Error: galois_ilog - w is too big.  Sorry\n");
++      fflush(stderr);
+       exit(1);
+     }
+   }
+@@ -295,6 +332,7 @@ int galois_log(int value, int w)
+   if (galois_log_tables[w] == NULL) {
+     if (galois_create_log_tables(w) < 0) {
+       fprintf(stderr, "Error: galois_log - w is too big.  Sorry\n");
++      fflush(stderr);
+       exit(1);
+     }
+   }
+@@ -338,11 +376,12 @@ int galois_single_multiply(int x, int y,
+   int z;
+ 
+   if (x == 0 || y == 0) return 0;
+-  
++
+   if (mult_type[w] == TABLE) {
+     if (galois_mult_tables[w] == NULL) {
+       if (galois_create_mult_tables(w) < 0) {
+         fprintf(stderr, "ERROR -- cannot make multiplication tables for w=%d\n", w);
++        fflush(stderr);
+         exit(1);
+       }
+     }
+@@ -351,6 +390,7 @@ int galois_single_multiply(int x, int y,
+     if (galois_log_tables[w] == NULL) {
+       if (galois_create_log_tables(w) < 0) {
+         fprintf(stderr, "ERROR -- cannot make log tables for w=%d\n", w);
++        fflush(stderr);
+         exit(1);
+       }
+     }
+@@ -361,6 +401,7 @@ int galois_single_multiply(int x, int y,
+     if (galois_split_w8[0] == NULL) {
+       if (galois_create_split_w8_tables() < 0) {
+         fprintf(stderr, "ERROR -- cannot make log split_w8_tables for w=%d\n", w);
++        fflush(stderr);
+         exit(1);
+       }
+     }
+@@ -385,6 +426,7 @@ int galois_single_divide(int a, int b, i
+     if (galois_div_tables[w] == NULL) {
+       if (galois_create_mult_tables(w) < 0) {
+         fprintf(stderr, "ERROR -- cannot make multiplication tables for w=%d\n", w);
++        fflush(stderr);
+         exit(1);
+       }
+     }
+@@ -395,6 +437,7 @@ int galois_single_divide(int a, int b, i
+     if (galois_log_tables[w] == NULL) {
+       if (galois_create_log_tables(w) < 0) {
+         fprintf(stderr, "ERROR -- cannot make log tables for w=%d\n", w);
++        fflush(stderr);
+         exit(1);
+       }
+     }
+@@ -454,6 +497,7 @@ void galois_w08_region_multiply(char *re
+   if (galois_mult_tables[8] == NULL) {
+     if (galois_create_mult_tables(8) < 0) {
+       fprintf(stderr, "galois_08_region_multiply -- couldn't make multiplication tables\n");
++      fflush(stderr);
+       exit(1);
+     }
+   }
+@@ -519,10 +563,11 @@ void galois_w16_region_multiply(char *re
+     }
+     return;
+   }
+-    
++
+   if (galois_log_tables[16] == NULL) {
+     if (galois_create_log_tables(16) < 0) {
+       fprintf(stderr, "galois_16_region_multiply -- couldn't make log tables\n");
++      fflush(stderr);
+       exit(1);
+     }
+   }
+@@ -556,16 +601,16 @@ void galois_w16_region_multiply(char *re
+       *lp2 = (*lp2) ^ l;
+     }
+   }
+-  return; 
++  return;
+ }
+ 
+ /* This will destroy mat, by the way */
+ 
+ void galois_invert_binary_matrix(int *mat, int *inv, int rows)
+ {
+-  int cols, i, j, k;
++  int cols, i, j;
+   int tmp;
+- 
++
+   cols = rows;
+ 
+   for (i = 0; i < rows; i++) inv[i] = (1 << i);
+@@ -574,23 +619,24 @@ void galois_invert_binary_matrix(int *ma
+ 
+   for (i = 0; i < cols; i++) {
+ 
+-    /* Swap rows if we ave a zero i,i element.  If we can't swap, then the 
++    /* Swap rows if we ave a zero i,i element.  If we can't swap, then the
+        matrix was not invertible */
+ 
+-    if ((mat[i] & (1 << i)) == 0) { 
++    if ((mat[i] & (1 << i)) == 0) {
+       for (j = i+1; j < rows && (mat[j] & (1 << i)) == 0; j++) ;
+       if (j == rows) {
+         fprintf(stderr, "galois_invert_matrix: Matrix not invertible!!\n");
++        fflush(stderr);
+         exit(1);
+       }
+       tmp = mat[i]; mat[i] = mat[j]; mat[j] = tmp;
+       tmp = inv[i]; inv[i] = inv[j]; inv[j] = tmp;
+     }
+- 
++
+     /* Now for each j>i, add A_ji*Ai to Aj */
+     for (j = i+1; j != rows; j++) {
+       if ((mat[j] & (1 << i)) != 0) {
+-        mat[j] ^= mat[i]; 
++        mat[j] ^= mat[i];
+         inv[j] ^= inv[i];
+       }
+     }
+@@ -605,7 +651,7 @@ void galois_invert_binary_matrix(int *ma
+         inv[j] ^= inv[i];
+       }
+     }
+-  } 
++  }
+ }
+ 
+ int galois_inverse(int y, int w)
+@@ -618,9 +664,9 @@ int galois_inverse(int y, int w)
+ 
+ int galois_shift_inverse(int y, int w)
+ {
+-  int mat[1024], mat2[32];
+-  int inv[1024], inv2[32];
+-  int ind, i, j, k, prod;
++  int mat2[32];
++  int inv2[32];
++  int i;
+  
+   for (i = 0; i < w; i++) {
+     mat2[i] = y;
+@@ -684,8 +730,7 @@ void galois_w32_region_multiply(char *re
+                                   char *r2,          /* If r2 != NULL, products go here */
+                                   int add)
+ {
+-  unsigned int *ur1, *ur2, *cp, *ur2top;
+-  unsigned long *lp2, *lptop;
++  unsigned int *ur1, *ur2, *ur2top;
+   int i, j, a, b, accumulator, i8, j8, k;
+   int acache[4];
+ 
+@@ -697,6 +742,7 @@ void galois_w32_region_multiply(char *re
+   if (galois_split_w8[0]== NULL) {
+     if (galois_create_split_w8_tables(8) < 0) {
+       fprintf(stderr, "galois_32_region_multiply -- couldn't make split multiplication tables\n");
++      fflush(stderr);
+       exit(1);
+     }
+   }
+@@ -767,18 +813,20 @@ void galois_region_xor(           char *
+   }
+ }
+ 
+-int galois_create_split_w8_tables()
++int _galois_create_split_w8_tables()
+ {
++  int *split[8];
++
+   int p1, p2, i, j, p1elt, p2elt, index, ishift, jshift, *table;
+ 
+   if (galois_split_w8[0] != NULL) return 0;
+ 
+-  if (galois_create_mult_tables(8) < 0) return -1;
++  if (_galois_create_mult_tables(8) < 0) return -1;
+ 
+   for (i = 0; i < 7; i++) {
+-    galois_split_w8[i] = (int *) malloc(sizeof(int) * (1 << 16));
+-    if (galois_split_w8[i] == NULL) {
+-      for (i--; i >= 0; i--) free(galois_split_w8[i]);
++    split[i] = (int *) malloc(sizeof(int) * (1 << 16));
++    if (split[i] == NULL) {
++      for (i--; i >= 0; i--) free(split[i]);
+       return -1;
+     }
+   }
+@@ -787,7 +835,7 @@ int galois_create_split_w8_tables()
+     ishift = i * 8;
+     for (j = ((i == 0) ? 0 : 1) ; j < 4; j++) {
+       jshift = j * 8;
+-      table = galois_split_w8[i+j];
++      table = split[i+j];
+       index = 0;
+       for (p1 = 0; p1 < 256; p1++) {
+         p1elt = (p1 << ishift);
+@@ -799,9 +847,24 @@ int galois_create_split_w8_tables()
+       }
+     }
+   }
++
++  for (i=6; i>=0; i--) galois_split_w8[i] = split[i];
++
+   return 0;
+ }
+ 
++int galois_create_split_w8_tables()
++{
++  int err = 0;
++  pthread_mutex_lock(&_galois_lock);
++  if (galois_split_w8[0] == NULL) {
++     err = _galois_create_split_w8_tables();
++  }
++  pthread_mutex_unlock(&_galois_lock);
++
++  return(err);
++}
++
+ int galois_split_w8_multiply(int x, int y)
+ {
+   int i, j, a, b, accumulator, i8, j8;
+--- jerasure-1.2A.orig/jerasure.c
++++ jerasure-1.2A/jerasure.c
+@@ -169,7 +169,7 @@ int jerasure_make_decoding_bitmatrix(int
+ int jerasure_matrix_decode(int k, int m, int w, int *matrix, int row_k_ones, int *erasures,
+                           char **data_ptrs, char **coding_ptrs, int size)
+ {
+-  int i, j, edd, lastdrive;
++  int i, edd, lastdrive;
+   int *tmpids;
+   int *erased, *decoding_matrix, *dm_ids;
+ 
+@@ -230,7 +230,7 @@ int jerasure_matrix_decode(int k, int m,
+     }
+   }
+ 
+-  /* Decode the data drives.  
++  /* Decode the data drives.
+      If row_k_ones is true and coding device 0 is intact, then only decode edd-1 drives.
+      This is done by stopping at lastdrive.
+      We test whether edd > 0 so that we can exit the loop early if we're done.
+@@ -253,7 +253,7 @@ int jerasure_matrix_decode(int k, int m,
+     jerasure_matrix_dotprod(k, w, matrix, tmpids, lastdrive, data_ptrs, coding_ptrs, size);
+     free(tmpids);
+   }
+-  
++
+   /* Finally, re-encode any erased coding devices */
+ 
+   for (i = 0; i < m; i++) {
+@@ -301,11 +301,11 @@ int *jerasure_matrix_to_bitmatrix(int k,
+ void jerasure_matrix_encode(int k, int m, int w, int *matrix,
+                           char **data_ptrs, char **coding_ptrs, int size)
+ {
+-  int *init;
+-  int i, j;
++  int i;
+   
+   if (w != 8 && w != 16 && w != 32) {
+     fprintf(stderr, "ERROR: jerasure_matrix_encode() and w is not 8, 16 or 32\n");
++    fflush(stderr);
+     exit(1);
+   }
+ 
+@@ -323,6 +323,7 @@ void jerasure_bitmatrix_dotprod(int k, i
+ 
+   if (size%(w*packetsize) != 0) {
+     fprintf(stderr, "jerasure_bitmatrix_dotprod - size%c(w*packetsize)) must = 0\n", '%');
++    fflush(stderr);
+     exit(1);
+   }
+ 
+@@ -562,6 +563,7 @@ void jerasure_free_schedule_cache(int k,
+ 
+   if (m != 2) {
+     fprintf(stderr, "jerasure_free_schedule_cache(): m must equal 2\n");
++    fflush(stderr);
+     exit(1);
+   }
+ 
+@@ -584,6 +586,7 @@ void jerasure_matrix_dotprod(int k, int
+ 
+   if (w != 1 && w != 8 && w != 16 && w != 32) {
+     fprintf(stderr, "ERROR: jerasure_matrix_dotprod() called and w is not 1, 8, 16 or 32\n");
++    fflush(stderr);
+     exit(1);
+   }
+ 
+@@ -639,12 +642,12 @@ void jerasure_matrix_dotprod(int k, int
+ int jerasure_bitmatrix_decode(int k, int m, int w, int *bitmatrix, int row_k_ones, int *erasures,
+                             char **data_ptrs, char **coding_ptrs, int size, int packetsize)
+ {
+-  int i, j;
++  int i;
+   int *erased;
+   int *decoding_matrix;
+   int *dm_ids;
+   int edd, *tmpids, lastdrive;
+-  
++
+   erased = jerasure_erasures_to_erased(k, m, erasures);
+   if (erased == NULL) return -1;
+ 
+@@ -652,7 +655,7 @@ int jerasure_bitmatrix_decode(int k, int
+      it, but calls the bitmatrix ops instead */
+ 
+   lastdrive = k;
+-    
++
+   edd = 0;
+   for (i = 0; i < k; i++) {
+     if (erased[i]) {
+@@ -777,7 +780,6 @@ static int set_up_ids_for_scheduled_deco
+ {
+   int ddf, cdf;
+   int *erased;
+-  char **ptrs;
+   int i, j, x;
+ 
+   ddf = 0;
+@@ -785,7 +787,7 @@ static int set_up_ids_for_scheduled_deco
+   for (i = 0; erasures[i] != -1; i++) {
+     if (erasures[i] < k) ddf++; else cdf++;
+   }
+-  
++
+   erased = jerasure_erasures_to_erased(k, m, erasures);
+   if (erased == NULL) return -1;
+ 
+@@ -1012,9 +1014,6 @@ int jerasure_schedule_decode_cache(int k
+ 
+ int ***jerasure_generate_schedule_cache(int k, int m, int w, int *bitmatrix, int smart)
+ {
+-  int i, tdone;
+-  char **ptrs;
+-  int **schedule;
+   int ***scache;
+   int erasures[3];
+   int e1, e2;
+@@ -1138,10 +1137,10 @@ int jerasure_invertible_bitmatrix(int *m
+   return 1;
+ }
+ 
+-  
++
+ int *jerasure_matrix_multiply(int *m1, int *m2, int r1, int c1, int r2, int c2, int w)
+ {
+-  int *product, i, j, k, l;
++  int *product, i, j, k;
+ 
+   product = (int *) malloc(sizeof(int)*r1*c2);
+   for (i = 0; i < r1*c2; i++) product[i] = 0;
+@@ -1195,7 +1194,7 @@ void jerasure_schedule_encode(int k, int
+                                    char **data_ptrs, char **coding_ptrs, int size, int packetsize)
+ {
+   char **ptr_copy;
+-  int i, j, tdone;
++  int i, tdone;
+ 
+   ptr_copy = talloc(char *, (k+m));
+   for (i = 0; i < k; i++) ptr_copy[i] = data_ptrs[i];
+@@ -1254,7 +1253,7 @@ int **jerasure_smart_bitmatrix_to_schedu
+ 
+   operations = talloc(int *, k*m*w*w+1);
+   op = 0;
+-  
++
+   diff = talloc(int, m*w);
+   from = talloc(int, m*w);
+   flink = talloc(int, m*w);
+@@ -1263,6 +1262,7 @@ int **jerasure_smart_bitmatrix_to_schedu
+   ptr = bitmatrix;
+ 
+   bestdiff = k*w+1;
++  bestrow = -1;
+   top = 0;
+   for (i = 0; i < m*w; i++) {
+     no = 0;
+@@ -1362,16 +1362,17 @@ int **jerasure_smart_bitmatrix_to_schedu
+ void jerasure_bitmatrix_encode(int k, int m, int w, int *bitmatrix,
+                             char **data_ptrs, char **coding_ptrs, int size, int packetsize)
+ {
+-  int i, j, x, y, sptr, pstarted, index;
+-  char *dptr, *pptr;
++  int i;
+ 
+   if (packetsize%sizeof(long) != 0) {
+     fprintf(stderr, "jerasure_bitmatrix_encode - packetsize(%d) %c sizeof(long) != 0\n", packetsize, '%');
++    fflush(stderr);
+     exit(1);
+   }
+   if (size%(packetsize*w) != 0) {
+     fprintf(stderr, "jerasure_bitmatrix_encode - size(%d) %c (packetsize(%d)*w(%d))) != 0\n", 
+          size, '%', packetsize, w);
++    fflush(stderr);
+     exit(1);
+   }
+ 
+--- jerasure-1.2A.orig/jerasure.h
++++ jerasure-1.2A/jerasure.h
+@@ -52,6 +52,9 @@ POSSIBILITY OF SUCH DAMAGE.
+ /* This uses procedures from the Galois Field arithmetic library */
+ 
+ #include "galois.h"
++#include "cauchy.h"
++#include "liberation.h"
++#include "reed_sol.h"
+ 
+ /* ------------------------------------------------------------ */
+ /* In all of the routines below:
+--- /dev/null
++++ jerasure-1.2A/jerasure.pc.in
+@@ -0,0 +1,14 @@
++
++# WARNING: This is just a starting point, this may not be complete or accurate
++
++prefix=@CMAKE_INSTALL_PREFIX@
++exec_prefix=${prefix}/@CMAKE_INSTALL_BINDIR@
++libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
++includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
++
++Name: @CMAKE_PROJECT_NAME@
++Description: A Library in C Facilitating Erasure Coding for Storage Applications 
++Version: @JERASURE_VERSION_STRING@
++Libs: -L${libdir} -ljerasure
++Libs.private: @PRIVATE_LIBS@
++Cflags: -I${includedir}
+--- jerasure-1.2A.orig/makefile
++++ /dev/null
+@@ -1,49 +0,0 @@
+-# Makefile
+-# James S. Plank
+-# 
+-# JERASURE - Library for Erasure Coding
+-# Copright (C) 2007 James S. Plank
+-# 
+-# This library is free software; you can redistribute it and/or
+-# modify it under the terms of the GNU Lesser General Public
+-# License as published by the Free Software Foundation; either
+-# version 2.1 of the License, or (at your option) any later version.
+-# 
+-# This library is distributed in the hope that it will be useful,
+-# but WITHOUT ANY WARRANTY; without even the implied warranty of
+-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-# Lesser General Public License for more details.
+-# 
+-# You should have received a copy of the GNU Lesser General Public
+-# License along with this library; if not, write to the Free Software
+-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
+-# James S. Plank
+-# Department of Electrical Engineering and Computer Science
+-# University of Tennessee
+-# Knoxville, TN 37996
+-# plank@cs.utk.edu
+-
+-# $Revision: 1.0 $
+-# $Date: 2007/09/25 15:12:20 $
+-
+-CC = gcc  
+-CFLAGS = -O3 -I$(HOME)/include
+-
+-ALL =	galois.o jerasure.o reed_sol.o cauchy.o liberation.o
+-
+-all: $(ALL)
+-
+-clean:
+-	rm -f core *.o $(ALL) a.out
+-
+-.SUFFIXES: .c .o
+-.c.o:
+-	$(CC) $(CFLAGS) -c $*.c
+-
+-galois.o: galois.h
+-jerasure.o: jerasure.h galois.h
+-reed_sol.o: jerasure.h galois.h reed_sol.h
+-cauchy.o: jerasure.h galois.h cauchy.h
+-liberation.o: jerasure.h galois.h liberation.h
+-
+--- jerasure-1.2A.orig/reed_sol.c
++++ jerasure-1.2A/reed_sol.c
+@@ -78,8 +78,7 @@ int *reed_sol_r6_coding_matrix(int k, in
+ 
+ int *reed_sol_vandermonde_coding_matrix(int k, int m, int w)
+ {
+-  int tmp;
+-  int i, j, index;
++  int i, j;
+   int *vdm, *dist;
+ 
+   vdm = reed_sol_big_vandermonde_distribution_matrix(k+m, k, w);

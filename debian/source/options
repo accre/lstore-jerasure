@@ -1,0 +1,5 @@
+# Ignore changes is generated documentation output
+extend-diff-ignore = "(^|/)doc/*"
+
+# track removal of files too
+include-removal
