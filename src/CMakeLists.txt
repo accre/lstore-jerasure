@@ -47,7 +47,7 @@ set_target_properties(jerasure PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 
 configure_file(jerasure.pc.in jerasure.pc @ONLY) 
 
-install(TARGETS jerasure jerasure-static DESTINATION @CMAKE_INSTALL_LIBDIR@)
-install(FILES jerasure.h galois.h cauchy.h reed_sol.h liberation.h DESTINATION @CMAKE_INSTALL_INCLUDEDIR@)
+install(TARGETS jerasure jerasure-static DESTINATION lib)
+install(FILES jerasure.h galois.h cauchy.h reed_sol.h liberation.h DESTINATION include/jerasure)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/jerasure.pc" DESTINATION @CMAKE_INSTALL_LIBDIR@/pkgconfig)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/jerasure.pc" DESTINATION lib/pkgconfig)
