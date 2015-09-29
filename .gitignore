@@ -3,3 +3,16 @@
 lib/
 *.org
 *.*~
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+src/CMakeFiles/
+src/Makefile
+src/cmake_install.cmake
+src/jerasure.pc
+src/libjerasure.a
+src/libjerasure.so
+src/libjerasure.so.1
+src/libjerasure.so.1.2.0
