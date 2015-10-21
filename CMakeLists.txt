@@ -12,7 +12,9 @@ add_subdirectory(src)
 # TODO: automate doxygen documentation rebuild?
 
 set(CPACK_PACKAGE_VERSION "1.2a")
-set(CPACK_GENERATOR "DEB;RPM")
+if(NOT DEFINED CPACK_GENERATOR)
+    set(CPACK_GENERATOR "DEB;RPM")
+endif(NOT DEFINED CPACK_GENERATOR)
 set(CPACK_PACKAGE_NAME "accre-jerasure")
 set(CPACK_PACKAGE_RELEASE 1)
 set(CPACK_PACKAGE_CONTACT "Andrew Melo or Alan Tackett")
